@@ -26,8 +26,8 @@ public class CacheService {
         this.path = path;
     }
 
-    //file
-    //from to timestamp rate
+    /*  file view
+        from to timestamp rate*/
     public Optional<ApiResponse> getActualExchangeRateFromFile(String fromCurrency, String toCurrency) {
 
         Optional<ApiResponse> result = Optional.empty();
@@ -60,5 +60,4 @@ public class CacheService {
             System.out.println("Writing to file failed");
         }
     }
-
 }

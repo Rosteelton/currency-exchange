@@ -1,7 +1,6 @@
 package ru.task.currency;
 
 import ru.task.currency.dto.ApiResponse;
-import ru.task.currency.dto.RateObject;
 import ru.task.currency.service.CacheService;
 import ru.task.currency.service.LoaderBarService;
 import ru.task.currency.service.WebService;
@@ -13,38 +12,41 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Timer;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class App {
 
-    public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
-        ExchangeRateService exchangeRateService = createWebServiceInstanceWithIO();
+    public static void main(String[] args) {
+        ExchangeRateService exchangeRateService;
         ExecutorService executorService = Executors.newSingleThreadExecutor();
-
         Timer timer = new Timer();
         LoaderBarService loaderBar = new LoaderBarService();
-        Future<Optional<ApiResponse>> response = executorService.submit(exchangeRateService);
+        try {
+            exchangeRateService = createExchangeRateServiceInstanceWithIO();
+            Future<Optional<ApiResponse>> response = executorService.submit(exchangeRateService);
 
-        if (!response.isDone()) {
-            timer.scheduleAtFixedRate(loaderBar, 0, 20);
+            if (!response.isDone()) {
+                timer.scheduleAtFixedRate(loaderBar, 0, 20);
+            }
+
+            Optional<ApiResponse> desiredRate = response.get();
+
+            if (desiredRate.isPresent()) {
+                System.out.println("\n" + desiredRate.get());
+            } else {
+                System.out.println("Sorry desired exchange rate hasn't  been found.\nPlease try again later");
+            }
+        } catch (Exception e) {
+            System.out.println("Oops! Something wrong!");
+        } finally {
+            timer.cancel();
+            executorService.shutdown();
         }
-
-        Optional<ApiResponse> desiredRate = response.get();
-
-        if (desiredRate.isPresent()) {
-            System.out.println("\n" + desiredRate.get());
-        } else {
-            System.out.println("Sorry desired exchange rate hasn't  been found.\nPlease try again later");
-        }
-
-        timer.cancel();
-        executorService.shutdown();
     }
 
-    public static ExchangeRateService createWebServiceInstanceWithIO() throws IOException {
+    public static ExchangeRateService createExchangeRateServiceInstanceWithIO() throws IOException {
         ArrayList<String> dictionary = initDictionary();
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 
@@ -71,7 +73,6 @@ public class App {
 
         return new ExchangeRateService(webService, cacheService, from, to);
     }
-
 
     public static ArrayList<String> initDictionary() {
         return new ArrayList<>(
