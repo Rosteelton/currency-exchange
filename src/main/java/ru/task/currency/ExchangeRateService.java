@@ -11,8 +11,9 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.concurrent.Callable;
 
-public class ExchangeRateService {
+public class ExchangeRateService implements Callable<ApiResponse>{
 
     private final Gson gson = new GsonBuilder()
             .registerTypeAdapter(RateObject.class, new RatesDeserializer())
@@ -24,6 +25,10 @@ public class ExchangeRateService {
     public ExchangeRateService(String fromCurrency, String toCurrency) {
         this.fromCurrency = fromCurrency;
         this.toCurrency = toCurrency;
+    }
+
+    public ApiResponse call() throws Exception {
+        return getExchangeRate();
     }
 
     public ApiResponse getExchangeRate() throws IOException {

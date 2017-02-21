@@ -1,10 +1,16 @@
 package ru.task.currency;
 
 import ru.task.currency.dto.ApiResponse;
+import ru.task.currency.service.LoaderBarService;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Timer;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class App {
 
@@ -14,16 +20,25 @@ public class App {
         CZK, INR, PLN, EUR, DKK, JPY, RON, RUB
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
 
-        ExchangeRateService webService = createWebServiceInstanceWithConsole();
-        ApiResponse response = webService.getExchangeRate();
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
 
-        System.out.println(response);
+        ExchangeRateService webService = createWebServiceInstanceWithIO();
+        Timer timer = new Timer();
+        LoaderBarService loaderBar = new LoaderBarService();
+        Future<ApiResponse> response = executorService.submit(webService);
 
+        if (!response.isDone()) {
+            timer.scheduleAtFixedRate(loaderBar, 0, 20);
+        }
+
+        System.out.println("\n" + response.get());
+        timer.cancel();
+        executorService.shutdown();
     }
 
-    public static ExchangeRateService createWebServiceInstanceWithConsole() throws IOException {
+    public static ExchangeRateService createWebServiceInstanceWithIO() throws IOException {
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         System.out.println("Enter from currency");
         String from = in.readLine();
