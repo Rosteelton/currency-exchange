@@ -1,11 +1,17 @@
 package ru.task.currency;
 
 import ru.task.currency.dto.ApiResponse;
+import ru.task.currency.dto.RateObject;
+import ru.task.currency.service.CacheService;
 import ru.task.currency.service.LoaderBarService;
+import ru.task.currency.service.WebService;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.Timer;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -14,43 +20,64 @@ import java.util.concurrent.Future;
 
 public class App {
 
-    public enum Currency {
-        AUD, GBP, KRW, SEK, BGN, HKD, MXN, SGD, BRL, HRK, MYR, THB,
-        CAD, HUF, NOK, TRY, CHF, IDR, HZD, USD, CNY, ILS, PHP, ZAR,
-        CZK, INR, PLN, EUR, DKK, JPY, RON, RUB
-    }
-
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
+        ExchangeRateService exchangeRateService = createWebServiceInstanceWithIO();
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(1);
-
-        ExchangeRateService webService = createWebServiceInstanceWithIO();
         Timer timer = new Timer();
         LoaderBarService loaderBar = new LoaderBarService();
-        Future<ApiResponse> response = executorService.submit(webService);
+        Future<Optional<ApiResponse>> response = executorService.submit(exchangeRateService);
 
         if (!response.isDone()) {
             timer.scheduleAtFixedRate(loaderBar, 0, 20);
         }
 
-        System.out.println("\n" + response.get());
+        Optional<ApiResponse> desiredRate = response.get();
+
+        if (desiredRate.isPresent()) {
+            System.out.println("\n" + desiredRate.get());
+        } else {
+            System.out.println("Sorry desired exchange rate hasn't  been found.\nPlease try again later");
+        }
+
         timer.cancel();
         executorService.shutdown();
     }
 
     public static ExchangeRateService createWebServiceInstanceWithIO() throws IOException {
+        ArrayList<String> dictionary = initDictionary();
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-        System.out.println("Enter from currency");
+
+        System.out.println("Enter FROM currency");
         String from = in.readLine();
 
-        Currency currencyFrom = Currency.valueOf(from);
-        //handle invalid string
-        //обернуть в try и терминэйт если поймал эксепшн?
+        while (!dictionary.contains(from)) {
+            System.out.println("Sorry, this currency is not supported!");
+            System.out.println("Enter FROM currency");
+            from = in.readLine();
+        }
 
-        System.out.println("Enter to currency");
+        System.out.println("Enter TO currency");
         String to = in.readLine();
-        return new ExchangeRateService(from, to);
+
+        while (!dictionary.contains(to)) {
+            System.out.println("Sorry, this currency is not supported!");
+            System.out.println("Enter TO currency");
+            to = in.readLine();
+        }
+
+        WebService webService = new WebService();
+        CacheService cacheService = new CacheService("SavedExchangeRates.txt");
+
+        return new ExchangeRateService(webService, cacheService, from, to);
     }
 
 
+    public static ArrayList<String> initDictionary() {
+        return new ArrayList<>(
+                Arrays.asList("AUD", "GBP", "KRW", "SEK", "BGN", "HKD", "MXN", "SGD", "BRL", "HRK",
+                        "MYR", "THB", "CAD", "HUF", "NOK", "TRY", "CHF", "IDR", "HZD", "USD", "CNY",
+                        "ILS", "PHP", "ZAR", "CZK", "INR", "PLN", "EUR", "DKK", "JPY", "RON", "RUB")
+        );
+    }
 }

@@ -9,6 +9,14 @@ public class RateObject {
         this.rate = rate;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public Double getRate() {
+        return rate;
+    }
+
     @Override
     public String toString() {
         return name + " : " + rate;

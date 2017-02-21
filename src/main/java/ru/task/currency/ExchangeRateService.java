@@ -1,55 +1,41 @@
 package ru.task.currency;
 
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import ru.task.currency.dto.ApiResponse;
-import ru.task.currency.dto.RateObject;
-import ru.task.currency.serializer.RatesDeserializer;
+import ru.task.currency.service.CacheService;
+import ru.task.currency.service.WebService;
 
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
-public class ExchangeRateService implements Callable<ApiResponse>{
+public class ExchangeRateService implements Callable<Optional<ApiResponse>>{
 
-    private final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(RateObject.class, new RatesDeserializer())
-            .create();
-
+    private WebService webService;
+    private CacheService cacheService;
     private String fromCurrency;
     private String toCurrency;
 
-    public ExchangeRateService(String fromCurrency, String toCurrency) {
+    public ExchangeRateService(WebService webService, CacheService cacheService, String fromCurrency, String toCurrency) {
+        this.webService = webService;
+        this.cacheService = cacheService;
         this.fromCurrency = fromCurrency;
         this.toCurrency = toCurrency;
     }
 
-    public ApiResponse call() throws Exception {
+    public Optional<ApiResponse> getExchangeRate() {
+        Optional<ApiResponse> rateFromFile = cacheService.getActualExchangeRateFromFile(fromCurrency, toCurrency);
+        if (rateFromFile.isPresent()) {
+            System.out.println("\nReturned from file");
+            return rateFromFile;
+        } else {
+            Optional<ApiResponse> rateFromWeb = webService.fetchExchangeRateFromWeb(fromCurrency, toCurrency);
+            rateFromWeb.ifPresent(some -> cacheService.saveExchangeRateRowToFile(some));
+            System.out.println("\nReturned from web");
+            return rateFromWeb;
+        }
+    }
+
+    @Override
+    public Optional<ApiResponse> call() throws Exception {
         return getExchangeRate();
     }
-
-    public ApiResponse getExchangeRate() throws IOException {
-        URL url = getUrl();
-        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
-        ApiResponse response;
-        try {
-            InputStream in = new BufferedInputStream(urlConnection.getInputStream());
-            BufferedReader br = new BufferedReader(new InputStreamReader(in));
-            response = gson.fromJson(br, ApiResponse.class);
-            in.close();
-            br.close();
-        } finally {
-            urlConnection.disconnect();
-        }
-        return response;
-    }
-
-    private URL getUrl() throws MalformedURLException {
-        String urlString = "http://api.fixer.io/latest?base=" + this.fromCurrency + "&symbols=" + this.toCurrency;
-        return new URL(urlString);
-    }
-
 }
